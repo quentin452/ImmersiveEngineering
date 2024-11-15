@@ -55,3 +55,8 @@ dependencies {
     implementation files("libs/Railcraft-9.15.1.jar")
 
 }
+jar {
+    manifest {
+        attributes 'FMLAT': 'ImmersiveEngineering_at.cfg'
+    }
+}
