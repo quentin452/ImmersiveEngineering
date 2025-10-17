@@ -17,7 +17,7 @@ public class ParticleRenderer
 		boolean isLightingEnabled = GL11.glGetBoolean(GL11.GL_LIGHTING);
 		GL11.glDepthMask(false);
 		GL11.glEnable(GL11.GL_BLEND);
-		GL11.glEnable(GL11.GL_LIGHTING);
+		GL11.glDisable(GL11.GL_LIGHTING);
 
 		for(String key : EntityFXIEBase.queuedRenders.keySet())
 		{
@@ -53,12 +53,11 @@ public class ParticleRenderer
 		GL11.glEnable(GL11.GL_DEPTH_TEST);
 		profiler.endSection();
 
-		if(!isLightingEnabled)
-			GL11.glDisable(GL11.GL_LIGHTING);
 		GL11.glAlphaFunc(GL11.GL_GREATER, 0.1F);
 		GL11.glDisable(GL11.GL_BLEND);
 		GL11.glDepthMask(true);
-
+		GL11.glEnable(GL11.GL_LIGHTING);
+		
 		profiler.endSection();
 	}
 }
