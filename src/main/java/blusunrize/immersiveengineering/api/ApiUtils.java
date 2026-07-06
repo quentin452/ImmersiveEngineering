@@ -104,7 +104,35 @@ public class ApiUtils
 				}
 		return null;
 	}
+	// The reverse ItemStack -> (componentType, metal) lookup below is O(OreDictionary)
+	// per call and gets hammered once per recipe input while building Arc recycling
+	// recipes (thousands of recipes x inputs). The OreDictionary is frozen after
+	// postInit, so the answer for a given (item, meta, componentTypes) is stable and
+	// memoized here. Thread-safe: ArcRecyclingThreadHandler queries from worker threads.
+	private static final java.util.concurrent.ConcurrentHashMap<String, String[]> metalComponentCache = new java.util.concurrent.ConcurrentHashMap<>();
+	private static final String[] METAL_COMPONENT_MISS = new String[0];
+
 	public static String[] getMetalComponentTypeAndMetal(ItemStack stack, String... componentTypes)
+	{
+		if(stack==null || stack.getItem()==null)
+			return null;
+		// Stacks carrying NBT bypass the cache (rare here; OreDictionary entries carry none).
+		String key = null;
+		if(!stack.hasTagCompound())
+		{
+			Object name = GameData.getItemRegistry().getNameForObject(stack.getItem());
+			key = name+"@"+stack.getItemDamage()+"#"+String.join(",", componentTypes);
+			String[] cached = metalComponentCache.get(key);
+			if(cached!=null)
+				return cached==METAL_COMPONENT_MISS?null:cached;
+		}
+		String[] result = computeMetalComponentTypeAndMetal(stack, componentTypes);
+		if(key!=null)
+			metalComponentCache.put(key, result==null?METAL_COMPONENT_MISS:result);
+		return result;
+	}
+
+	private static String[] computeMetalComponentTypeAndMetal(ItemStack stack, String... componentTypes)
 	{
 		ItemStack comp = copyStackWithAmount(stack, 1);
 		for(String oreName : OreDictionary.getOreNames())//This is super ugly, but I don't want to force the latest forge ._.
