@@ -1,5 +1,7 @@
 package blusunrize.immersiveengineering.common.crafting;
 
+import java.util.*;
+
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemHoe;
@@ -13,25 +15,25 @@ import net.minecraft.item.crafting.ShapelessRecipes;
 import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.oredict.ShapedOreRecipe;
 import net.minecraftforge.oredict.ShapelessOreRecipe;
+
+import com.google.common.collect.Sets;
+
 import blusunrize.immersiveengineering.api.ApiUtils;
 import blusunrize.immersiveengineering.api.IEApi;
 import blusunrize.immersiveengineering.api.crafting.ArcFurnaceRecipe;
 import blusunrize.immersiveengineering.common.util.IELogger;
 import blusunrize.immersiveengineering.common.util.Utils;
 
-import java.util.*;
+public class ArcRecyclingThreadHandler {
 
-import com.google.common.collect.Sets;
-
-public class ArcRecyclingThreadHandler
-{
     static boolean hasProfiled = false;
 
     public static void doRecipeProfiling() {
         removeOldRecipes();
 
         long timestamp = System.currentTimeMillis();
-        int threadAmount = Runtime.getRuntime().availableProcessors();
+        int threadAmount = Runtime.getRuntime()
+            .availableProcessors();
         RegistryIterationThread[] threads = createThreads(threadAmount);
 
         ArrayList<RecyclingCalculation> validated = new ArrayList<>();
@@ -57,7 +59,8 @@ public class ArcRecyclingThreadHandler
     }
 
     private static RegistryIterationThread[] createThreads(int threadAmount) {
-        final List<IRecipe> recipeList = CraftingManager.getInstance().getRecipeList();
+        final List<IRecipe> recipeList = CraftingManager.getInstance()
+            .getRecipeList();
         boolean divisable = recipeList.size() % threadAmount == 0;
         int limit = divisable ? (recipeList.size() / threadAmount) : (recipeList.size() / (threadAmount - 1));
         int leftOver = divisable ? limit : (recipeList.size() - (threadAmount - 1) * limit);
@@ -68,8 +71,8 @@ public class ArcRecyclingThreadHandler
         return threads;
     }
 
-    private static Map<ItemStack, List<RecyclingCalculation>> calculateThreadOutputs(
-        RegistryIterationThread[] threads, ArrayList<RecyclingCalculation> validated) {
+    private static Map<ItemStack, List<RecyclingCalculation>> calculateThreadOutputs(RegistryIterationThread[] threads,
+        ArrayList<RecyclingCalculation> validated) {
         Map<ItemStack, List<RecyclingCalculation>> nonValidated = new HashMap<>();
 
         for (RegistryIterationThread thread : threads) {
@@ -79,7 +82,8 @@ public class ArcRecyclingThreadHandler
                     if (calc.isValid()) {
                         validated.add(calc);
                     } else {
-                        nonValidated.computeIfAbsent(calc.stack, k -> new ArrayList<>()).add(calc);
+                        nonValidated.computeIfAbsent(calc.stack, k -> new ArrayList<>())
+                            .add(calc);
                     }
                 }
             } catch (InterruptedException e) {
@@ -90,7 +94,7 @@ public class ArcRecyclingThreadHandler
     }
 
     private static void validateNonValidated(ArrayList<RecyclingCalculation> validated,
-                                             Map<ItemStack, List<RecyclingCalculation>> nonValidated) {
+        Map<ItemStack, List<RecyclingCalculation>> nonValidated) {
         int timeout = 0;
         Set<ItemStack> newlyValidatedSubcomponents = new HashSet<>();
 
@@ -111,7 +115,8 @@ public class ArcRecyclingThreadHandler
                 }
             }
 
-            nonValidated.keySet().removeAll(toRemove);
+            nonValidated.keySet()
+                .removeAll(toRemove);
         }
     }
 
@@ -124,12 +129,14 @@ public class ArcRecyclingThreadHandler
     }
 
     private static void addInvalidRecipes(Map<ItemStack, List<RecyclingCalculation>> nonValidated,
-                                          HashSet<String> finishedRecycles) {
+        HashSet<String> finishedRecycles) {
         for (List<RecyclingCalculation> invalidList : nonValidated.values()) {
             for (RecyclingCalculation invalid : invalidList) {
                 if (finishedRecycles.add(invalid.stack.toString())) {
-                    IELogger.info("Couldn't fully analyze " + invalid.stack + ", missing knowledge for "
-                        + invalid.queriedSubcomponents);
+                    IELogger.info(
+                        "Couldn't fully analyze " + invalid.stack
+                            + ", missing knowledge for "
+                            + invalid.queriedSubcomponents);
                     ArcFurnaceRecipe.recipeList.add(new ArcRecyclingRecipe(invalid.outputs, invalid.stack, 100, 512));
                 }
             }
@@ -137,18 +144,19 @@ public class ArcRecyclingThreadHandler
     }
 
     private static void logFinishedProfiling(long timestamp) {
-        IELogger.info("Finished recipe profiler for Arc Recycling, took " + (System.currentTimeMillis() - timestamp) + " milliseconds");
+        IELogger.info(
+            "Finished recipe profiler for Arc Recycling, took " + (System.currentTimeMillis() - timestamp)
+                + " milliseconds");
     }
 
-    public static class RegistryIterationThread extends Thread
-    {
+    public static class RegistryIterationThread extends Thread {
+
         final List<IRecipe> recipeList;
         final int baseOffset;
         final int passes;
         ArrayList<RecyclingCalculation> calculatedOutputs = new ArrayList<>();
 
-        public RegistryIterationThread(List<IRecipe> recipeList, int baseOffset, int passes)
-        {
+        public RegistryIterationThread(List<IRecipe> recipeList, int baseOffset, int passes) {
             setName("Immersive Engineering Registry Iteration Thread");
             setDaemon(true);
             start();
@@ -158,88 +166,90 @@ public class ArcRecyclingThreadHandler
         }
 
         @Override
-        public void run()
-        {
-            for(int pass=0; pass<passes; pass++)
-            {
-                IRecipe recipe = recipeList.get(baseOffset+pass);
-                if(recipe.getRecipeOutput()!=null && isValidForRecycling(recipe.getRecipeOutput()))
-                {
+        public void run() {
+            for (int pass = 0; pass < passes; pass++) {
+                IRecipe recipe = recipeList.get(baseOffset + pass);
+                if (recipe.getRecipeOutput() != null && isValidForRecycling(recipe.getRecipeOutput())) {
                     RecyclingCalculation calc = getRecycleCalculation(recipe.getRecipeOutput(), recipe);
-                    if(calc!=null)
-                        calculatedOutputs.add(calc);
+                    if (calc != null) calculatedOutputs.add(calc);
                 }
             }
         }
     }
 
-    public static boolean isValidForRecycling(ItemStack stack)
-    {
-        if(stack==null)
-            return false;
+    public static boolean isValidForRecycling(ItemStack stack) {
+        if (stack == null) return false;
         Item item = stack.getItem();
-        if(item instanceof ItemTool || item instanceof ItemSword || item instanceof ItemHoe || item instanceof ItemArmor)
-            return true;
-        for(Object recycle : ArcFurnaceRecipe.recyclingAllowed)
-            if(Utils.stackMatchesObject(stack, recycle))
-                return true;
+        if (item instanceof ItemTool || item instanceof ItemSword
+            || item instanceof ItemHoe
+            || item instanceof ItemArmor) return true;
+        for (Object recycle : ArcFurnaceRecipe.recyclingAllowed)
+            if (Utils.stackMatchesObject(stack, recycle)) return true;
         return false;
     }
 
-    public static RecyclingCalculation getRecycleCalculation(ItemStack stack, IRecipe recipe)
-    {
+    public static RecyclingCalculation getRecycleCalculation(ItemStack stack, IRecipe recipe) {
         Object[] inputs = null;
-        if(recipe instanceof ShapedOreRecipe)
-            inputs = ((ShapedOreRecipe)recipe).getInput();
-        else if(recipe instanceof ShapelessOreRecipe)
-            inputs = ((ShapelessOreRecipe)recipe).getInput().toArray();
-        else if(recipe instanceof ShapedRecipes)
-            inputs = ((ShapedRecipes)recipe).recipeItems;
-        else if(recipe instanceof ShapelessRecipes)
-            inputs = ((ShapelessRecipes)recipe).recipeItems.toArray();
+        if (recipe instanceof ShapedOreRecipe) inputs = ((ShapedOreRecipe) recipe).getInput();
+        else if (recipe instanceof ShapelessOreRecipe) inputs = ((ShapelessOreRecipe) recipe).getInput()
+            .toArray();
+        else if (recipe instanceof ShapedRecipes) inputs = ((ShapedRecipes) recipe).recipeItems;
+        else if (recipe instanceof ShapelessRecipes) inputs = ((ShapelessRecipes) recipe).recipeItems.toArray();
 
-        if(inputs!=null)
-        {
+        if (inputs != null) {
             int inputSize = stack.stackSize;
             ArrayList<ItemStack> missingSub = new ArrayList<>();
             HashMap<ItemStack, Double> outputs = new HashMap<>();
-            for(Object in : inputs)
-                if (in != null) {
-                    ItemStack inputStack = getInputStack(in);
+            for (Object in : inputs) if (in != null) {
+                ItemStack inputStack = getInputStack(in);
 
-                    if (inputStack == null) {
-                        continue;
+                if (inputStack == null) {
+                    continue;
+                }
+
+                Object[] brokenDown = ApiUtils.breakStackIntoPreciseIngots(inputStack);
+                if (brokenDown == null) {
+                    if (isValidForRecycling(inputStack)) {
+                        missingSub.add(inputStack);
                     }
+                    continue;
+                }
 
-                    Object[] brokenDown = ApiUtils.breakStackIntoPreciseIngots(inputStack);
-                    if (brokenDown == null) {
-                        if (isValidForRecycling(inputStack)) {
-                            missingSub.add(inputStack);
+                if (brokenDown[0] instanceof ItemStack && brokenDown[1] instanceof Double
+                    && (Double) brokenDown[1] > 0) {
+                    ItemStack brokenDownStack = (ItemStack) brokenDown[0];
+                    boolean invalidOutput = false;
+                    for (Object invalid : ArcFurnaceRecipe.invalidRecyclingOutput) {
+                        if (invalid instanceof ItemStack && Utils.stackMatchesObject(brokenDownStack, invalid)) {
+                            invalidOutput = true;
+                            break;
                         }
-                        continue;
                     }
-
-                    if (brokenDown[0] instanceof ItemStack && brokenDown[1] instanceof Double && (Double) brokenDown[1] > 0) {
-                        ItemStack brokenDownStack = (ItemStack) brokenDown[0];
-                        boolean invalidOutput = false;
-                        for (Object invalid : ArcFurnaceRecipe.invalidRecyclingOutput) {
-                            if (invalid instanceof ItemStack && Utils.stackMatchesObject(brokenDownStack, invalid)) {
-                                invalidOutput = true;
-                                break;
-                            }
-                        }
-                        if (!invalidOutput) {
-                            boolean found = outputs.keySet().stream().anyMatch(storedOut -> OreDictionary.itemMatches(brokenDownStack, storedOut, false));
-                            if (found) {
-                                outputs.merge(outputs.keySet().stream().filter(storedOut -> OreDictionary.itemMatches(brokenDownStack, storedOut, false)).findFirst().get(), (Double) brokenDown[1] / inputSize, Double::sum);
-                            } else {
-                                outputs.put(Utils.copyStackWithAmount(brokenDownStack, 1), (Double) brokenDown[1] / inputSize);
-                            }
+                    if (!invalidOutput) {
+                        boolean found = outputs.keySet()
+                            .stream()
+                            .anyMatch(storedOut -> OreDictionary.itemMatches(brokenDownStack, storedOut, false));
+                        if (found) {
+                            outputs.merge(
+                                outputs.keySet()
+                                    .stream()
+                                    .filter(storedOut -> OreDictionary.itemMatches(brokenDownStack, storedOut, false))
+                                    .findFirst()
+                                    .get(),
+                                (Double) brokenDown[1] / inputSize,
+                                Double::sum);
+                        } else {
+                            outputs
+                                .put(Utils.copyStackWithAmount(brokenDownStack, 1), (Double) brokenDown[1] / inputSize);
                         }
                     }
                 }
+            }
             if (!outputs.isEmpty() || !missingSub.isEmpty()) {
-                RecyclingCalculation calc = new RecyclingCalculation(recipe, Utils.copyStackWithAmount(stack, 1), outputs);
+                RecyclingCalculation calc = new RecyclingCalculation(
+                    recipe,
+                    Utils.copyStackWithAmount(stack, 1),
+                    outputs);
                 calc.queriedSubcomponents.addAll(missingSub);
                 return calc;
             }
@@ -262,6 +272,7 @@ public class ArcRecyclingThreadHandler
     }
 
     public static class RecyclingCalculation {
+
         IRecipe recipe;
         ItemStack stack;
         HashMap<ItemStack, Double> outputs;
